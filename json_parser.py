@@ -16,4 +16,14 @@ for data in get_metadata(DATA_FILE_PATH):
             license_dic[data_dic['license']] = 1
 
 print(license_dic)
-# i, j = 2134841 224512
+# License Summary:
+# Total: 2134841
+# 'http://arxiv.org/licenses/nonexclusive-distrib/1.0/': 1457448, 
+# 'http://creativecommons.org/licenses/by-nc-nd/4.0/': 21653, 
+# 'http://creativecommons.org/licenses/publicdomain/': 2478, 
+# 'http://creativecommons.org/licenses/by-nc-sa/3.0/': 5878, 
+# 'http://creativecommons.org/licenses/by/3.0/': 7921, 
+# 'http://creativecommons.org/licenses/by/4.0/': 146774, 
+# 'http://creativecommons.org/licenses/by-nc-sa/4.0/': 21661, 
+# 'http://creativecommons.org/publicdomain/zero/1.0/': 9001, 
+# 'http://creativecommons.org/licenses/by-sa/4.0/': 9146
