@@ -4,7 +4,7 @@ import pandas as pd
 from PIL import Image
 
 def load_csv(CSV_path):
-    df = pd.read_csv(CSV_path, nrows=50)
+    df = pd.read_csv(CSV_path)
     return df
 
 def tokenize_all_caps(df, device):
@@ -21,9 +21,10 @@ def normalize(image_features, text_features):
     text_features /= text_features.norm(dim=-1, keepdim=True)
     return image_features, text_features
 
-def main(CSV_path, model="ViT-B/32"):
+def main(CSV_path, model="RN50x16"):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(device)
     model, preprocess = clip.load(model, device=device)
 
     df = load_csv(CSV_path)
@@ -49,5 +50,5 @@ def main(CSV_path, model="ViT-B/32"):
         #probs = logits_per_image.softmax(dim=-1).cpu().numpy()
 
 if __name__ == "__main__":
-    CSV_PATH = r"C:\Users\Anchit Jain\ML_projects\CLIP_data\scicap_data\scicap_test_data\test.csv"
+    CSV_PATH = "/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv"
     main(CSV_PATH)
