@@ -3,6 +3,7 @@ import clip
 import pandas as pd
 from PIL import Image
 
+
 def load_csv(CSV_path):
     df = pd.read_csv(CSV_path)
     return df
@@ -13,17 +14,22 @@ def tokenize_all_caps(df, device):
 
 def preprocess_images(df, device, preprocess):
     images = [preprocess(Image.open(fig_path)).unsqueeze(0).to(device) for fig_path in df["fig_path"].tolist()]
-    images = torch.cat(images)
+    #images = torch.cat(images)
     return images
 
 def normalize(image_features, text_features):
     image_features /= image_features.norm(dim=-1, keepdim=True)
     text_features /= text_features.norm(dim=-1, keepdim=True)
     return image_features, text_features
+    
+def grouper(n, iterable):
+    iters = [iter(iterable)] * n
+    return zip(*iters)
 
-def main(CSV_path, model="RN50x16"):
+def main(CSV_path, model="ViT-L/14@336px"):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(model)
     print(device)
     model, preprocess = clip.load(model, device=device)
 
@@ -33,9 +39,10 @@ def main(CSV_path, model="RN50x16"):
 
 
     with torch.no_grad():
-        print(images.shape)
+        print(len(images))
         print(text.shape)
-        image_features, text_features = normalize(model.encode_image(images), model.encode_text(text))
+        image_features = torch.cat([model.encode_image(torch.cat(image_batch, 0)) for image_batch in grouper(100, images)], 0)
+        image_features, text_features = normalize(image_features, model.encode_text(text))
         similarities = image_features @ text_features.T
         print(similarities)
         map = 0
