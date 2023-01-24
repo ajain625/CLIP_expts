@@ -29,8 +29,8 @@ def grouper(n, iterable):
 def main(CSV_path, model="ViT-L/14@336px"):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(model)
-    print(device)
+    print(f"Model: {model}")
+    print(f"Device: {device}")
     model, preprocess = clip.load(model, device=device)
 
     df = load_csv(CSV_path)
@@ -39,8 +39,8 @@ def main(CSV_path, model="ViT-L/14@336px"):
 
 
     with torch.no_grad():
-        print(len(images))
-        print(text.shape)
+        print(f"Number of images: {len(images)}")
+        #print(text.shape)
         image_features = torch.cat([model.encode_image(torch.cat(image_batch, 0)) for image_batch in grouper(100, images)], 0)
         image_features, text_features = normalize(image_features, model.encode_text(text))
         similarities = image_features @ text_features.T
@@ -49,7 +49,7 @@ def main(CSV_path, model="ViT-L/14@336px"):
         for i in range(similarities.shape[0]):
             rank = sum(similarities[i] >= similarities[i][i]).item()
             map += 1/rank
-        print(map/similarities.shape[0])
+        print(f"Mean Average Precision: {map/similarities.shape[0]}")
 
 
         
