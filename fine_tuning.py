@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.optim as optim
 import time
+import inference_utils
 #from inference_utils import load_csv
 
 
@@ -19,10 +20,15 @@ def convert_models_to_fp32(model):
         p.grad.data = p.grad.data.float() 
 
 
-def main(CSV_path, SAVE_DIR, MODEL = "ViT-B/32", BATCH_SIZE = 500, EPOCHS = 2):
+def main(CSV_path, SAVE_DIR, CHECKPOINT_PATH = None, MODEL = "RN50", BATCH_SIZE = 500, EPOCHS = 1):
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu" # If using GPU then use mixed precision training.
+
     model, preprocess = clip.load(MODEL, device=device,jit=False) #Must set jit=False for training
+    if CHECKPOINT_PATH:
+        checkpoint = torch.load(CHECKPOINT_PATH)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        print("checkpoint loaded")
 
     print(MODEL)
     print(device)
@@ -58,14 +64,15 @@ def main(CSV_path, SAVE_DIR, MODEL = "ViT-B/32", BATCH_SIZE = 500, EPOCHS = 2):
 
     loss_img = nn.CrossEntropyLoss()
     loss_txt = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=5e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) #Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
+    optimizer = optim.Adam(model.parameters(), lr=5e-6,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) #Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
     for epoch in range(EPOCHS):
         epoch_start_time = time.time()
+        batch_time = time.time()
         print(f"Epoch : {epoch}")
+        batch_number = 0
         for batch in train_dataloader :
-            batch_start_time = time.time()
-
+            
             optimizer.zero_grad()
 
             images,texts = batch 
@@ -88,19 +95,22 @@ def main(CSV_path, SAVE_DIR, MODEL = "ViT-B/32", BATCH_SIZE = 500, EPOCHS = 2):
                 convert_models_to_fp32(model)
             optimizer.step()
             clip.model.convert_weights(model)
-            print(f"Batch Process Time = {time.time() - batch_start_time}")
+            print(f"Batch Process Time = {time.time() - batch_time}")
+            batch_time = time.time()
+            batch_number += 1
 
+        map = inference_utils.inference("/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv", model, preprocess)
         torch.save({
+        'batch': batch_number,
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
-        'loss': total_loss,
-        }, os.path.join(SAVE_DIR, "epoch_" + str(epoch) + "_model_" + "ViTB32" + ".pt"))
-        
+        'map': map
+        }, os.path.join(SAVE_DIR,"model_" + MODEL.replace('\\', '') + "_epoch_" + str(epoch) + "_batch_" + str(batch_number) + "_map_" + str(map)[:6] + ".pt"))
         print("model saved")
-        print(f"Epoch Time = {time.time() - epoch_start_time} seconds")
+        print(f"Epoch Time = {time.time() - epoch_start_time}")
 
 if __name__ == "__main__":
-    main("/rds/project/rds-lSmP1cwRttU/aj625/datasets/train.csv", "/rds/project/rds-lSmP1cwRttU/aj625/models", MODEL = "RN50", BATCH_SIZE = 500, EPOCHS = 2)
-
-
+    #"/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv" #"/rds/project/rds-lSmP1cwRttU/aj625/datasets/train.csv"
+    #"/home/aj625/rds/rds-t2-cs151-lSmP1cwRttU/aj625/models/epoch_1_model_RN50.pt"
+    main("/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv", "/rds/project/rds-lSmP1cwRttU/aj625/models", CHECKPOINT_PATH=None, MODEL = "RN50", BATCH_SIZE = 500, EPOCHS = 10)

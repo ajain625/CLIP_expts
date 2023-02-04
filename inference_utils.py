@@ -26,12 +26,22 @@ def grouper(n, iterable):
     iters = [iter(iterable)] * n
     return zip(*iters)
 
-def main(CSV_path, model="ViT-L/14@336px"):
+def inference(CSV_path, model, preprocess = None):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Model: {model}")
+
+    #print(f"Model: {model}")
     print(f"Device: {device}")
-    model, preprocess = clip.load(model, device=device)
+    if isinstance(model, str) and preprocess is None:
+        model, preprocess = clip.load(model, device=device)
+        print("Running Inference using default CLIP models")
+        print(f"Model: {model}")
+    elif isinstance(model, torch.nn.Module) and preprocess:
+        model.eval()
+        print("Running Inference using custom passed model and preprocess")
+    else:
+        print("Error. Incorrect model or preprocess passed")
+
 
     df = load_csv(CSV_path)
     text = tokenize_all_caps(df, device)
@@ -50,6 +60,7 @@ def main(CSV_path, model="ViT-L/14@336px"):
             rank = sum(similarities[i] >= similarities[i][i]).item()
             map += 1/rank
         print(f"Mean Average Precision: {map/similarities.shape[0]}")
+        return map/similarities.shape[0]
 
 
         
@@ -58,4 +69,9 @@ def main(CSV_path, model="ViT-L/14@336px"):
 
 if __name__ == "__main__":
     CSV_PATH = "/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv"
-    main(CSV_PATH)
+    CHECKPOINT_PATH = "/home/aj625/rds/rds-t2-cs151-lSmP1cwRttU/aj625/models/model_RN50_epoch_1_batch_1_map_0.2269.pt"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model, preprocess = clip.load("RN50", device=device)
+    #checkpoint = torch.load(CHECKPOINT_PATH)
+    #model.load_state_dict(checkpoint['model_state_dict'])
+    inference(CSV_PATH, model=model, preprocess = preprocess)
