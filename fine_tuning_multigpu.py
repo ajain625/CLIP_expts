@@ -1,4 +1,4 @@
-# Taken from https://github.com/openai/CLIP/issues/111
+# adapted from https://github.com/openai/CLIP/issues/111
 import torch
 import clip
 import pandas as pd
@@ -12,6 +12,11 @@ import inference_utils
 
 # things to check
 # rows of csv loaded, batch size, save path, number of epochs, saving name, model, shuffling (may be False for debugging purposes), 
+
+def convert_models_to_fp32(model): 
+    for p in model.parameters(): 
+        p.data = p.data.float() 
+        p.grad.data = p.grad.data.float() 
 
 def create_logits(x1,x2,logit_scale):
     x1 = x1 / x1.norm(dim=-1, keepdim=True)
@@ -54,12 +59,12 @@ class image_title_dataset(Dataset):
         title = self.title[idx]
         return image,title
 
-CSV_PATH = "/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv" #"/rds/project/rds-lSmP1cwRttU/aj625/datasets/train.csv"
-BATCH_SIZE = 128
-EPOCH = 2
-MODEL = "RN50"
+CSV_PATH = "/rds/project/rds-lSmP1cwRttU/aj625/datasets/train.csv" #"/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv"
+BATCH_SIZE = 512
+EPOCH = 1
+MODEL = "RN50x16"
 SAVE_DIR = "/rds/project/rds-lSmP1cwRttU/aj625/models/"
-BATCH_SAVE_INTERVAL = 2
+BATCH_SAVE_INTERVAL = 20
 CHECKPOINT_PATH = None #"/rds/project/rds-lSmP1cwRttU/aj625/models/epoch_2_model_RN50.pt"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -91,9 +96,12 @@ print(f"Dataloading Time = {time.time() - data_load_start_time}")
 loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
 
-optimizer = optim.Adam(model.parameters(), lr=5e-6,betas=(0.9,0.98),eps=1e-6,weight_decay=0.05) #We chain the optimizer to model, not to model_image or model_text, since the computaional graph is still connected. So updating model will also update the model_image and model_text
+optimizer = optim.Adam(model.parameters(), lr=3e-6, eps=1e-6,betas=(0.9,0.98),weight_decay=0.01)
+
 if CHECKPOINT_PATH:
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+loss_list = []
 
 for epoch in range(EPOCH):
     epoch_start_time = time.time()
@@ -120,9 +128,15 @@ for epoch in range(EPOCH):
         print(f"total loss : {total_loss}")
         print(f"img loss : {img_loss}")
         print(f"text loss : {text_loss}")
+
+        loss_list.append([epoch, batch_number, total_loss, img_loss, text_loss])
+
         total_loss.backward()
+        convert_models_to_fp32(model)
         optimizer.step()
         clip.model.convert_weights(model)
+
+        batch_number += 1
 
         if batch_number%BATCH_SAVE_INTERVAL == 0:
             map = inference_utils.inference("/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv", model, preprocess)
@@ -134,7 +148,7 @@ for epoch in range(EPOCH):
             'map': map
             }, os.path.join(SAVE_DIR,"model_" + MODEL.replace('\\', '') + "_epoch_" + str(epoch) + "_batch_" + str(batch_number) + "_map_" + str(map)[:6] + ".pt"))
             print("model saved")
-        batch_number += 1
+        
 
     map = inference_utils.inference("/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv", model, preprocess)
     torch.save({
@@ -146,3 +160,7 @@ for epoch in range(EPOCH):
     }, os.path.join(SAVE_DIR,"model_" + MODEL.replace('\\', '') + "_epoch_" + str(epoch) + "_batch_" + str(batch_number) + "_map_" + str(map)[:6] + ".pt"))
     print("model saved")
     print(f"Epoch Time = {time.time() - epoch_start_time}")
+
+    columns = ["epoch", "batch_number", "total_loss", "img_loss", "text_loss"]
+    loss_df = pd.DataFrame(loss_list, columns=columns)
+    loss_df.to_csv(os.path.join(SAVE_DIR,"loss_" + MODEL.replace('\\', '') + ".csv"))
