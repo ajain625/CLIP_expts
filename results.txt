@@ -12,3 +12,10 @@ ViT-B/32 - 0.1203565618245017
 ViT-B/16 - 0.2032763657793367
 ViT-L/14 - 0.2485284016228078
 ViT-L/14@336px - 0.26393348333502414
+
+Fine Tuning Hyperparameters
+
+Model-BS-Epochs-Adam
+RN50-1024-1-(lr=3e-6, eps=1e-6,betas=(0.9,0.98),weight_decay=0.01)
+RN50x16-512-1-(lr=3e-6, eps=1e-6,betas=(0.9,0.98),weight_decay=0.01)
+

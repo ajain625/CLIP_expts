@@ -31,14 +31,14 @@ def inference(CSV_path, model, preprocess = None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     #print(f"Model: {model}")
-    print(f"Device: {device}")
+    #print(f"Device: {device}")
     if isinstance(model, str) and preprocess is None:
         model, preprocess = clip.load(model, device=device)
         print("Running Inference using default CLIP models")
         print(f"Model: {model}")
     elif isinstance(model, torch.nn.Module) and preprocess:
         model.eval()
-        print("Running Inference using custom passed model and preprocess")
+        #print("Running Inference using custom passed model and preprocess")
     else:
         print("Error. Incorrect model or preprocess passed")
 
@@ -49,7 +49,7 @@ def inference(CSV_path, model, preprocess = None):
 
 
     with torch.no_grad():
-        print(f"Number of images: {len(images)}")
+        #print(f"Number of images: {len(images)}")
         #print(text.shape)
         image_features = torch.cat([model.encode_image(torch.cat(image_batch, 0)) for image_batch in grouper(100, images)], 0)
         image_features, text_features = normalize(image_features, model.encode_text(text))
