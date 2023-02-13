@@ -60,9 +60,9 @@ class image_title_dataset(Dataset):
         return image,title
 
 CSV_PATH = "/rds/project/rds-lSmP1cwRttU/aj625/datasets/train.csv" #"/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv"
-BATCH_SIZE = 512
+BATCH_SIZE = 128
 EPOCH = 1
-MODEL = "RN50x16"
+MODEL = "ViT-L/14@336px"
 SAVE_DIR = "/rds/project/rds-lSmP1cwRttU/aj625/models/"
 BATCH_SAVE_INTERVAL = 20
 CHECKPOINT_PATH = None #"/rds/project/rds-lSmP1cwRttU/aj625/models/epoch_2_model_RN50.pt"
@@ -96,7 +96,7 @@ print(f"Dataloading Time = {time.time() - data_load_start_time}")
 loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
 
-optimizer = optim.Adam(model.parameters(), lr=3e-6, eps=1e-6,betas=(0.9,0.98),weight_decay=0.01)
+optimizer = optim.Adam(model.parameters(), lr=1e-6, eps=1e-6,betas=(0.9,0.98),weight_decay=0.01)
 
 if CHECKPOINT_PATH:
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -105,6 +105,7 @@ loss_list = []
 
 for epoch in range(EPOCH):
     epoch_start_time = time.time()
+    batch_time = time.time()
     print(f"Epoch {epoch}")
     batch_number = 0
 
@@ -138,6 +139,9 @@ for epoch in range(EPOCH):
 
         batch_number += 1
 
+        print(f"Batch Process Time = {time.time() - batch_time}")
+        batch_time = time.time()
+
         if batch_number%BATCH_SAVE_INTERVAL == 0:
             map = inference_utils.inference("/rds/project/rds-lSmP1cwRttU/aj625/datasets/scicap_test_data/raw_caps_test.csv", model, preprocess)
             torch.save({
@@ -146,7 +150,7 @@ for epoch in range(EPOCH):
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'map': map
-            }, os.path.join(SAVE_DIR,"model_" + MODEL.replace('\\', '') + "_epoch_" + str(epoch) + "_batch_" + str(batch_number) + "_map_" + str(map)[:6] + ".pt"))
+            }, os.path.join(SAVE_DIR,"model_" + MODEL.replace('/', '-') + "_epoch_" + str(epoch) + "_batch_" + str(batch_number) + "_map_" + str(map)[:6] + ".pt"))
             print("model saved")
         
 
@@ -163,4 +167,4 @@ for epoch in range(EPOCH):
 
     columns = ["epoch", "batch_number", "total_loss", "img_loss", "text_loss"]
     loss_df = pd.DataFrame(loss_list, columns=columns)
-    loss_df.to_csv(os.path.join(SAVE_DIR,"loss_" + MODEL.replace('\\', '') + ".csv"))
+    loss_df.to_csv(os.path.join(SAVE_DIR,"loss_" + MODEL.replace('/', '-') + ".csv"))
