@@ -53,7 +53,7 @@ def inference(CSV_path, model, preprocess = None):
         #print(text.shape)
         image_features = torch.cat([model.encode_image(torch.cat(image_batch, 0)) for image_batch in grouper(100, images)], 0)
         image_features, text_features = normalize(image_features, model.encode_text(text))
-        similarities = image_features @ text_features.T
+        similarities = text_features @ image_features.T
         print(similarities)
         map = 0
         for i in range(similarities.shape[0]):
